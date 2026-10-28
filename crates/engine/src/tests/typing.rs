@@ -3139,6 +3139,20 @@ fn highlight_at_a_caret_leaves_the_word_alone() {
     assert_eq!(s.run("format.state", &json!({})).unwrap()["highlight"], json!("FFFF00"));
     run(&mut s, "select.text", json!({"text":"Beta"}));
     assert_eq!(s.run("format.state", &json!({})).unwrap()["highlight"], serde_json::Value::Null);
+    // The toggle reads the pending colour, not the word's: a second press turns it off.
+    run(&mut s, "caret.docStart", json!({}));
+    run(&mut s, "caret.right", json!({}));
+    run(&mut s, "format.highlight", json!({}));
+    assert_eq!(s.pending.as_ref().unwrap().highlight, Some(wordcraft_doc::props::Highlight::Yellow));
+    run(&mut s, "format.highlight", json!({}));
+    assert_eq!(s.pending.as_ref().unwrap().highlight, Some(wordcraft_doc::props::Highlight::None));
+    // Bold after Highlight formats the word and keeps both for what is typed next.
+    run(&mut s, "format.highlight", json!({}));
+    run(&mut s, "format.bold", json!({}));
+    run(&mut s, "text.insert", json!({"text":"Y"}));
+    run(&mut s, "select.text", json!({"text":"Y"}));
+    let state = s.run("format.state", &json!({})).unwrap();
+    assert_eq!((state["highlight"].clone(), state["bold"].clone()), (json!("FFFF00"), json!(true)));
 }
 
 /// A differently coloured final paragraph must remain visible to the shortcut beyond

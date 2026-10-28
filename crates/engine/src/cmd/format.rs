@@ -222,6 +222,12 @@ fn apply_to(s: &mut Session, target: fn(&Session) -> Option<(Pos, Pos)>, f: &dyn
     match selected_text_box(s).or_else(|| target(s)) {
         Some((a, b)) => {
             s.doc.format_range(&a, &b, f)?;
+            // The word at a caret took the change: so does formatting waiting for typing (#4086).
+            if s.sel.is_collapsed()
+                && let Some(pend) = s.pending.as_mut()
+            {
+                f(pend);
+            }
         }
         None => {
             let mut pend = s.typing_props();
@@ -433,7 +439,12 @@ fn target_has_highlight(s: &Session, h: Highlight) -> bool {
             }
         }
     }
-    // No runs: retain the caret/pending and empty text-box paragraph-mark rules.
+    // No runs: retain the caret/pending and empty text-box paragraph-mark rules. A caret checks
+    // what is typed next, not the word it's in (#4086).
+    if selected_text_box(s).or_else(|| selection(s)).is_none() {
+        let style = s.doc.para_at(&s.sel.focus).and_then(|p| p.props.style.as_deref());
+        return seen || matches(style, &s.typing_props());
+    }
     seen || resolved(s).iter().all(|r| r.highlight == h.rgb())
 }
 
