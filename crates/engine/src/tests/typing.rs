@@ -3124,6 +3124,23 @@ fn highlight_toggle_handles_mixed_inherited_and_pending_formatting() {
     assert_eq!(serde_json::to_value(&s.doc).unwrap(), before);
 }
 
+/// #4086: a caret inside a word highlights what is typed next, not the word; Bold still
+/// formats the word.
+#[test]
+fn highlight_at_a_caret_leaves_the_word_alone() {
+    let mut s = typed("Alpha Beta");
+    run(&mut s, "caret.docStart", json!({}));
+    run(&mut s, "caret.right", json!({}));
+    run(&mut s, "format.highlight", json!({"color":"yellow"}));
+    assert!(s.doc.body[0].as_para().unwrap().runs.iter().all(|r| r.props.highlight.is_none()));
+    assert_eq!(s.pending.as_ref().unwrap().highlight, Some(wordcraft_doc::props::Highlight::Yellow));
+    run(&mut s, "text.insert", json!({"text":"X"}));
+    run(&mut s, "select.text", json!({"text":"X"}));
+    assert_eq!(s.run("format.state", &json!({})).unwrap()["highlight"], json!("FFFF00"));
+    run(&mut s, "select.text", json!({"text":"Beta"}));
+    assert_eq!(s.run("format.state", &json!({})).unwrap()["highlight"], serde_json::Value::Null);
+}
+
 /// A differently coloured final paragraph must remain visible to the shortcut beyond
 /// the formatting-state query limit, including a style-inherited tail and Undo/Redo.
 #[cfg(not(target_os = "macos"))]
